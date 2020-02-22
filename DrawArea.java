@@ -16,7 +16,12 @@ public class DrawArea extends JComponent {
   private int moveX = -1;
   private int moveY = -1;
   public static boolean playerSetOn = false;
+  public static boolean flagSetOn = false;
   private Point playerSpawn;
+  private Point flagSpawn;
+  private int clickedWallY;
+  public String nameValue;
+  public int parValue = -1;
 
   public DrawArea(){
     setDoubleBuffered(false);
@@ -44,6 +49,7 @@ public class DrawArea extends JComponent {
           if(walls.get(i).getBounds().contains(clickedPoint)){
             walls.get(i).highlighted = !walls.get(i).highlighted;
             clickedWall = true;
+            clickedWallY = walls.get(i).getY();
           } else {
             walls.get(i).highlighted = false;
           }
@@ -51,6 +57,10 @@ public class DrawArea extends JComponent {
         if(!clickedWall && playerSetOn){
           playerSpawn = e.getPoint();
           playerSetOn = false;
+        }
+        if(clickedWall && flagSetOn){
+          flagSpawn = new Point(e.getX(), clickedWallY-32);
+          flagSetOn = false;
         }
         render();
       }
@@ -94,6 +104,10 @@ public class DrawArea extends JComponent {
     if(playerSpawn!=null){
       g2.fillOval((int)playerSpawn.x-5,(int)playerSpawn.y-5,10,10);
     }
+    if(flagSpawn!=null){
+      g2.setColor(Color.RED);
+      g2.fillRect((int)flagSpawn.x,(int)flagSpawn.y,8,32);
+    }
     walls.forEach((w) -> {
       if(w.highlighted){
         g2.setColor(Color.BLUE);
@@ -105,7 +119,7 @@ public class DrawArea extends JComponent {
   }
 
   protected void paintComponent(Graphics g) {
-    if (image == null) {
+    if(image == null) {
       image = createImage(getSize().width, getSize().height);
       g2 = (Graphics2D) image.getGraphics();
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -127,15 +141,60 @@ public class DrawArea extends JComponent {
   }
 
   public void exportLevel() throws IOException {
-    try{
-      final BufferedWriter writer = new BufferedWriter(new FileWriter("level2.lvl"));
-      writer.write("SPAWN,"+(int)playerSpawn.x*5+","+(int)playerSpawn.y*5+"\n");
-      for(RectangleWall r : walls){
-        writer.write(r.printLvlInfo() + "\n");
+    if(nameValue == null || parValue == -1 || playerSpawn == null || flagSpawn == null){
+      return;
+    }
+    JFileChooser fileChooser = new JFileChooser();
+    fileChooser.setDialogTitle("Specify a file to save");
+
+    int userSelection = fileChooser.showSaveDialog(SwingPaint.instance.frame);
+
+    if(userSelection == JFileChooser.APPROVE_OPTION) {
+        File fileToSave = fileChooser.getSelectedFile();
+        try{
+          final BufferedWriter writer = new BufferedWriter(new FileWriter(fileToSave));
+          writer.write(nameValue+"\n");
+          writer.write(parValue+"\n");
+          writer.write((int)playerSpawn.x*5+","+(int)playerSpawn.y*5+"\n");
+          writer.write((int)flagSpawn.x*5+","+(int)flagSpawn.y*5+"\n");
+          for(RectangleWall r : walls){
+            writer.write(r.printLvlInfo() + "\n");
+          }
+          writer.close();
+        } catch(IOException e){
+          e.printStackTrace();
+        }
+    }
+  }
+
+  public void openLevel(){
+    JFileChooser fileChooser = new JFileChooser();
+    fileChooser.setDialogTitle("Specify a file to load");
+
+    int userSelection = fileChooser.showOpenDialog(SwingPaint.instance.frame);
+    if(userSelection == JFileChooser.APPROVE_OPTION){
+      File openedFile = fileChooser.getSelectedFile();
+      try {
+        final BufferedReader reader = new BufferedReader(new FileReader(openedFile));
+        walls.clear();
+        nameValue = reader.readLine();
+        parValue = Integer.parseInt(reader.readLine());
+        String[] tplayerSpawn = reader.readLine().split(",");
+        playerSpawn = new Point(Integer.parseInt(tplayerSpawn[0])/5, Integer.parseInt(tplayerSpawn[1])/5);
+        String[] tflagSpawn = reader.readLine().split(",");
+        flagSpawn = new Point(Integer.parseInt(tflagSpawn[0])/5, Integer.parseInt(tflagSpawn[1])/5);
+        String line;
+        while((line = reader.readLine())!=null){
+          String[] lineele = line.split(",");
+          walls.add(new RectangleWall(Integer.parseInt(lineele[0])/5, Integer.parseInt(lineele[1])/5, Integer.parseInt(lineele[2])/5, Integer.parseInt(lineele[3])/5));
+        }
+        reader.close();
+      } catch(IOException e){
+        e.printStackTrace();
+      } finally {
+        System.out.println(playerSpawn.toString() + " " + flagSpawn.toString());
+        render();
       }
-      writer.close();
-    } catch(IOException e){
-      e.printStackTrace();
     }
   }
 
